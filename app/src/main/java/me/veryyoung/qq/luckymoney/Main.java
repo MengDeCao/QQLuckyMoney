@@ -67,13 +67,11 @@ public class Main implements IXposedHookLoadPackage {
     private static Bundle bundle;
     private static Object globalQQInterface = null;
     private static int n = 1;
-    private static int versionCode;
 
 
     private void dohook(final XC_LoadPackage.LoadPackageParam loadPackageParam) throws Throwable {
 
         initVersionCode(loadPackageParam);
-
         findAndHookMethod("com.tencent.mobileqq.data.MessageForQQWalletMsg", loadPackageParam.classLoader, "doParse", new
                 XC_MethodHook() {
                     @Override
@@ -105,27 +103,27 @@ public class Main implements IXposedHookLoadPackage {
                         String group = PreferencesUtils.group();
                         if (!TextUtils.isEmpty(group)) {
                             for (String group1 : group.split(",")) {
-                                 if (frienduin.equals(group1) || senderuin.equals(group1)) {
-                                     if(istroop == 1 && senderuin.equals(group1)) {
+                                if (frienduin.equals(group1) || senderuin.equals(group1)) {
+                                    if (istroop == 1 && senderuin.equals(group1)) {
                                         from = "指定人不抢" + "\n" + "来自群:" + getObjectField(findResultByMethodNameAndReturnTypeAndParams(TroopManager, "a", "com.tencent.mobileqq.data.TroopInfo", frienduin), "troopname") + "\n" + "来自:" + getObjectField(callMethod(FriendManager, "c", group1), "name");
-                                     } else if (istroop == 1) {
+                                    } else if (istroop == 1) {
                                         from = "指定群不抢" + "\n" + "来自群:" + getObjectField(findResultByMethodNameAndReturnTypeAndParams(TroopManager, "a", "com.tencent.mobileqq.data.TroopInfo", group1), "troopname");
-                                     } else {
+                                    } else {
                                         from = "指定人不抢" + "\n" + "来自:" + getObjectField(callMethod(FriendManager, "c", group1), "name");
-                                     }
-                                     toast(from);
-                                     return;
-                                 }
-                           }
+                                    }
+                                    toast(from);
+                                    return;
+                                }
+                            }
                         }
 
                         String keywords = PreferencesUtils.keywords();
                         if (!TextUtils.isEmpty(keywords)) {
                             for (String keywords1 : keywords.split(",")) {
-                                 if (password.contains(keywords1)) {
-                                     toast("关键词不抢" + "\n" + "关键词:" + keywords1);
-                                     return;
-                                 }
+                                if (password.contains(keywords1)) {
+                                    toast("关键词不抢" + "\n" + "关键词:" + keywords1);
+                                    return;
+                                }
                             }
                         }
 
@@ -133,7 +131,7 @@ public class Main implements IXposedHookLoadPackage {
                         StringBuffer requestUrl = new StringBuffer();
                         requestUrl.append("&uin=" + selfuin);
                         requestUrl.append("&listid=" + redPacketId);
-                        requestUrl.append("&name=" + Uri.encode((String)getObjectField(callMethod(FriendManager, "c", selfuin), "name")));
+                        requestUrl.append("&name=" + Uri.encode((String) getObjectField(callMethod(FriendManager, "c", selfuin), "name")));
                         requestUrl.append("&answer=");
                         requestUrl.append("&groupid=" + (istroop == 0 ? selfuin : frienduin));
                         requestUrl.append("&grouptype=" + getGroupType());
@@ -260,16 +258,16 @@ public class Main implements IXposedHookLoadPackage {
             }
         });
 
-         findAndHookConstructor("com.tencent.mobileqq.app.DiscussionManager", loadPackageParam.classLoader, "com.tencent.mobileqq.app.QQAppInterface", new XC_MethodHook() {
-             protected void afterHookedMethod(MethodHookParam methodHookParam) {
-                 DiscussionManager = methodHookParam.thisObject;
-             }
+        findAndHookConstructor("com.tencent.mobileqq.app.DiscussionManager", loadPackageParam.classLoader, "com.tencent.mobileqq.app.QQAppInterface", new XC_MethodHook() {
+            protected void afterHookedMethod(MethodHookParam methodHookParam) {
+                DiscussionManager = methodHookParam.thisObject;
+            }
         });
 
-         findAndHookConstructor("com.tencent.mobileqq.app.FriendsManager", loadPackageParam.classLoader, "com.tencent.mobileqq.app.QQAppInterface", new XC_MethodHook() {
-             protected void afterHookedMethod(MethodHookParam methodHookParam) {
-                 FriendManager = methodHookParam.thisObject;
-             }
+        findAndHookConstructor("com.tencent.mobileqq.app.FriendsManager", loadPackageParam.classLoader, "com.tencent.mobileqq.app.QQAppInterface", new XC_MethodHook() {
+            protected void afterHookedMethod(MethodHookParam methodHookParam) {
+                FriendManager = methodHookParam.thisObject;
+            }
         });
 
     }
@@ -325,12 +323,9 @@ public class Main implements IXposedHookLoadPackage {
     }
 
     private void initVersionCode(XC_LoadPackage.LoadPackageParam loadPackageParam) throws PackageManager.NameNotFoundException {
-        if (0 != versionCode) {
-            Context context = (Context) callMethod(callStaticMethod(findClass("android.app.ActivityThread", null), "currentActivityThread", new Object[0]), "getSystemContext", new Object[0]);
-            int versionCode = context.getPackageManager().getPackageInfo(loadPackageParam.packageName, 0).versionCode;
-            this.versionCode = versionCode;
-            VersionParam.init(versionCode);
-        }
+        Context context = (Context) callMethod(callStaticMethod(findClass("android.app.ActivityThread", null), "currentActivityThread", new Object[0]), "getSystemContext", new Object[0]);
+        int versionCode = context.getPackageManager().getPackageInfo(loadPackageParam.packageName, 0).versionCode;
+        VersionParam.init(versionCode);
     }
 
 

@@ -27,6 +27,10 @@ public class VersionParam {
             QQPluginClass = "com.tenpay.android.qqplugin.a.q";
             walletPluginClass = "com.tenpay.android.qqplugin.c.d";
             pickObject = "b";
+        } else {
+            QQPluginClass = "com.tenpay.android.qqplugin.a.q";
+            walletPluginClass = "com.tenpay.android.qqplugin.c.d";
+            pickObject = "b";
         }
     }
 
