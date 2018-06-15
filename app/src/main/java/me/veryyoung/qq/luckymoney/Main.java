@@ -1,8 +1,6 @@
 package me.veryyoung.qq.luckymoney;
 
-import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -23,6 +21,7 @@ import java.util.Random;
 import dalvik.system.BaseDexClassLoader;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
@@ -50,7 +49,7 @@ import static me.veryyoung.qq.luckymoney.enums.ReplyStatus.MISSED;
 public class Main implements IXposedHookLoadPackage {
 
     public static final String QQ_PACKAGE_NAME = "com.tencent.mobileqq";
-    private static final String WECHAT_PACKAGE_NAME = "com.tencent.mm";
+
     /**
      * search  "qwallet.cgi", "qpay_gate.cgi",
      */
@@ -75,6 +74,7 @@ public class Main implements IXposedHookLoadPackage {
 
 
     private void dohook(final XC_LoadPackage.LoadPackageParam loadPackageParam) throws Throwable {
+        new DonateHook().hook(loadPackageParam);
 
         findAndHookConstructor("dalvik.system.BaseDexClassLoader", loadPackageParam.classLoader, String.class, File.class, String.class, ClassLoader.class, new XC_MethodHook() {
                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
@@ -95,6 +95,7 @@ public class Main implements IXposedHookLoadPackage {
                         msgUid = 0;
 
                         int messageType = (int) getObjectField(param.thisObject, "messageType");
+                        XposedBridge.log("messageType:" + messageType);
                         if (messageType == 6 && PreferencesUtils.password() == CLOSE) {
                             return;
                         }
@@ -178,7 +179,6 @@ public class Main implements IXposedHookLoadPackage {
 
                         Bundle hbResponseBundle = (Bundle) callMethod(requestCaller, "a", globalContext, openLuckyMoneyUrl);
                         String hbResponse = (String) callStaticMethod(findClass(REQUEST_UTIL, walletClassLoader), "a", globalContext, random, new String(hbResponseBundle.getByteArray("data")));
-
 
                         JSONObject jsonobject = new JSONObject(hbResponse);
                         String name = jsonobject.getJSONObject("send_object").optString("send_name");
@@ -312,35 +312,6 @@ public class Main implements IXposedHookLoadPackage {
                 dohook(loadPackageParam);
             }
         }
-
-
-        if (loadPackageParam.packageName.equals(WECHAT_PACKAGE_NAME)) {
-            findAndHookMethod("com.tencent.mm.ui.LauncherUI", loadPackageParam.classLoader, "onCreate", Bundle.class, new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    Activity activity = (Activity) param.thisObject;
-                    if (activity != null) {
-                        Intent intent = activity.getIntent();
-                        if (intent != null) {
-                            String className = intent.getComponent().getClassName();
-                            if (!TextUtils.isEmpty(className) && className.equals("com.tencent.mm.ui.LauncherUI") && intent.hasExtra("donate")) {
-                                Intent donateIntent = new Intent();
-                                donateIntent.setClassName(activity, "com.tencent.mm.plugin.remittance.ui.RemittanceUI");
-                                donateIntent.putExtra("scene", 1);
-                                donateIntent.putExtra("pay_scene", 32);
-                                donateIntent.putExtra("fee", 10.0d);
-                                donateIntent.putExtra("pay_channel", 13);
-                                donateIntent.putExtra("receiver_name", "yang_xiongwei");
-                                donateIntent.removeExtra("donate");
-                                activity.startActivity(donateIntent);
-                                activity.finish();
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
     }
 
 
