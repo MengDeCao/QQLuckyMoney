@@ -3,8 +3,6 @@ package me.veryyoung.qq.luckymoney;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -14,6 +12,7 @@ import android.widget.Toast;
 
 import org.json.JSONObject;
 
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -21,6 +20,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Random;
 
+import dalvik.system.BaseDexClassLoader;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
@@ -51,6 +51,12 @@ public class Main implements IXposedHookLoadPackage {
 
     public static final String QQ_PACKAGE_NAME = "com.tencent.mobileqq";
     private static final String WECHAT_PACKAGE_NAME = "com.tencent.mm";
+    /**
+     * search  "qwallet.cgi", "qpay_gate.cgi",
+     */
+    public static final String REQUEST_UTIL = "com.tenpay.sdk.d.j";
+
+    public static final String REQUEST_CALLER = "com.tenpay.sdk.g.g";
 
     private static long msgUid;
     private static String senderuin;
@@ -64,14 +70,21 @@ public class Main implements IXposedHookLoadPackage {
     private static Object TroopManager;
     private static Object DiscussionManager;
     private static Object FriendManager;
-    private static Bundle bundle;
     private static Object globalQQInterface = null;
     private static int n = 1;
 
 
     private void dohook(final XC_LoadPackage.LoadPackageParam loadPackageParam) throws Throwable {
 
-        initVersionCode(loadPackageParam);
+        findAndHookConstructor("dalvik.system.BaseDexClassLoader", loadPackageParam.classLoader, String.class, File.class, String.class, ClassLoader.class, new XC_MethodHook() {
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        if (param.args[0].toString().endsWith("qwallet_plugin.apk")) {
+                            new WalletHook().hook((BaseDexClassLoader) param.thisObject);
+                        }
+                    }
+                }
+        );
+
         findAndHookMethod("com.tencent.mobileqq.data.MessageForQQWalletMsg", loadPackageParam.classLoader, "doParse", new
                 XC_MethodHook() {
                     @Override
@@ -127,39 +140,47 @@ public class Main implements IXposedHookLoadPackage {
                             }
                         }
 
-                        ClassLoader walletClassLoader = (ClassLoader) callStaticMethod(findClass("com.tencent.mobileqq.pluginsdk.PluginStatic", loadPackageParam.classLoader), "getOrCreateClassLoader", globalContext, "qwallet_plugin.apk");
-                        StringBuffer requestUrl = new StringBuffer();
-                        requestUrl.append("&uin=" + selfuin);
-                        requestUrl.append("&listid=" + redPacketId);
-                        requestUrl.append("&name=" + Uri.encode((String) getObjectField(callMethod(FriendManager, "c", selfuin), "name")));
-                        requestUrl.append("&answer=");
-                        requestUrl.append("&groupid=" + (istroop == 0 ? selfuin : frienduin));
-                        requestUrl.append("&grouptype=" + getGroupType());
-                        requestUrl.append("&groupuin=" + getGroupuin(messageType));
-                        requestUrl.append("&channel=" + getObjectField(mQQWalletRedPacketMsg, "redChannel"));
-                        requestUrl.append("&authkey=" + authkey);
-                        requestUrl.append("&agreement=0");
 
-                        Class qqplugin = findClass(VersionParam.QQPluginClass, walletClassLoader);
-
-                        int random = Math.abs(new Random().nextInt()) % 16;
-                        String reqText = (String) callStaticMethod(qqplugin, "a", globalContext, random, false, requestUrl.toString());
-                        StringBuffer hongbaoRequestUrl = new StringBuffer();
-                        hongbaoRequestUrl.append("https://mqq.tenpay.com/cgi-bin/hongbao/qpay_hb_na_grap.cgi?ver=2.0&chv=3");
-                        hongbaoRequestUrl.append("&req_text=" + reqText);
-                        hongbaoRequestUrl.append("&random=" + random);
-                        hongbaoRequestUrl.append("&skey_type=2");
-                        hongbaoRequestUrl.append("&skey=" + callMethod(TicketManager, "getSkey", selfuin));
-                        hongbaoRequestUrl.append("&msgno=" + generateNo(selfuin));
-
-                        Class<?> walletClass = findClass(VersionParam.walletPluginClass, walletClassLoader);
-                        Object pickObject = newInstance(walletClass, callStaticMethod(qqplugin, "a", globalContext));
                         if (PreferencesUtils.delay()) {
                             sleep(PreferencesUtils.delayTime());
                         }
 
-                        bundle = (Bundle) callMethod(pickObject, VersionParam.pickObject, hongbaoRequestUrl.toString());
-                        JSONObject jsonobject = new JSONObject(callStaticMethod(qqplugin, "a", globalContext, random, callStaticMethod(qqplugin, "a", globalContext, bundle, new JSONObject())).toString());
+                        ClassLoader walletClassLoader = (ClassLoader) callStaticMethod(findClass("com.tencent.mobileqq.pluginsdk.PluginStatic", loadPackageParam.classLoader), "getOrCreateClassLoader", globalContext, "qwallet_plugin.apk");
+                        Object requestCaller = newInstance(findClass(REQUEST_CALLER, walletClassLoader), new Object[]{null});
+
+                        String skey = (String) callMethod(TicketManager, "getSkey", selfuin);
+                        int random = Math.abs(new Random().nextInt()) % 16;
+                        StringBuffer requestUrl = new StringBuffer()
+                                .append("uin").append("=").append(selfuin)
+                                .append("&").append("listid").append("=").append(redPacketId)
+                                .append("&").append("authkey").append("=").append(authkey)
+                                .append("&").append("skey_type").append("=").append(2)
+                                .append("&").append("groupid").append("=").append(istroop == 0 ? selfuin : frienduin)
+                                .append("&").append("grouptype").append("=").append(getGroupType())
+                                .append("&").append("senderuin").append("=").append(senderuin)
+                                .append("&").append("groupuin").append("=").append(getGroupuin(messageType))
+                                .append("&").append("name").append("=").append(getObjectField(callMethod(FriendManager, "c", selfuin), "name"))
+                                .append("&").append("skey").append("=").append(skey)
+                                .append("&").append("channel").append("=").append(getObjectField(mQQWalletRedPacketMsg, "redChannel"))
+                                .append("&").append("hb_from").append("=").append(0)
+                                .append("&").append("agreement").append("=").append(0);
+
+                        String reqText = (String) callStaticMethod(findClass(REQUEST_UTIL, walletClassLoader), "a", globalContext, "https://mqq.tenpay.com/cgi-bin/hongbao/qpay_hb_na_grap.cgi?ver=2.0&chv=3", random, requestUrl.toString());
+
+                        String openLuckyMoneyUrl = new StringBuffer("https://mqq.tenpay.com/cgi-bin/hongbao/qpay_hb_na_grap.cgi?ver=2.0&chv=3")
+                                .append("&").append("req_text").append("=").append(reqText)
+                                .append("&").append("skey").append("=").append(skey)
+                                .append("&").append("skey_type").append("=").append(2)
+                                .append("&").append("random").append("=").append(random)
+                                .append("&msgno=" + generateNo(selfuin))
+                                .toString();
+
+
+                        Bundle hbResponseBundle = (Bundle) callMethod(requestCaller, "a", globalContext, openLuckyMoneyUrl);
+                        String hbResponse = (String) callStaticMethod(findClass(REQUEST_UTIL, walletClassLoader), "a", globalContext, random, new String(hbResponseBundle.getByteArray("data")));
+
+
+                        JSONObject jsonobject = new JSONObject(hbResponse);
                         String name = jsonobject.getJSONObject("send_object").optString("send_name");
                         int state = jsonobject.optInt("state");
                         if (istroop == 1) {
@@ -320,12 +341,6 @@ public class Main implements IXposedHookLoadPackage {
             });
         }
 
-    }
-
-    private void initVersionCode(XC_LoadPackage.LoadPackageParam loadPackageParam) throws PackageManager.NameNotFoundException {
-        Context context = (Context) callMethod(callStaticMethod(findClass("android.app.ActivityThread", null), "currentActivityThread", new Object[0]), "getSystemContext", new Object[0]);
-        int versionCode = context.getPackageManager().getPackageInfo(loadPackageParam.packageName, 0).versionCode;
-        VersionParam.init(versionCode);
     }
 
 
