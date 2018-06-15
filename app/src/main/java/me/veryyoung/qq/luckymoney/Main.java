@@ -1,6 +1,8 @@
 package me.veryyoung.qq.luckymoney;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -99,6 +101,9 @@ public class Main implements IXposedHookLoadPackage {
                         if (messageType == 6 && PreferencesUtils.password() == CLOSE) {
                             return;
                         }
+                        if (13 == messageType) {
+                            return;
+                        }
 
                         Object mQQWalletRedPacketMsg = getObjectField(param.thisObject, "mQQWalletRedPacketMsg");
                         String redPacketId = getObjectField(mQQWalletRedPacketMsg, "redPacketId").toString();
@@ -158,13 +163,16 @@ public class Main implements IXposedHookLoadPackage {
                                 .append("&").append("skey_type").append("=").append(2)
                                 .append("&").append("groupid").append("=").append(istroop == 0 ? selfuin : frienduin)
                                 .append("&").append("grouptype").append("=").append(getGroupType())
-                                .append("&").append("senderuin").append("=").append(senderuin)
                                 .append("&").append("groupuin").append("=").append(getGroupuin(messageType))
                                 .append("&").append("name").append("=").append(getObjectField(callMethod(FriendManager, "c", selfuin), "name"))
                                 .append("&").append("skey").append("=").append(skey)
-                                .append("&").append("channel").append("=").append(getObjectField(mQQWalletRedPacketMsg, "redChannel"))
-                                .append("&").append("hb_from").append("=").append(0)
-                                .append("&").append("agreement").append("=").append(0);
+                                .append("&").append("channel").append("=").append(getObjectField(mQQWalletRedPacketMsg, "redChannel"));
+                        if (13 != messageType) {
+                            requestUrl.append("&").append("senderuin").append("=").append(senderuin)
+                                    .append("&").append("hb_from").append("=").append(0);
+
+                        }
+                        requestUrl.append("&").append("agreement").append("=").append(0);
 
                         String reqText = (String) callStaticMethod(findClass(REQUEST_UTIL, walletClassLoader), "a", globalContext, "https://mqq.tenpay.com/cgi-bin/hongbao/qpay_hb_na_grap.cgi?ver=2.0&chv=3", random, requestUrl.toString());
 
@@ -180,6 +188,7 @@ public class Main implements IXposedHookLoadPackage {
                         Bundle hbResponseBundle = (Bundle) callMethod(requestCaller, "a", globalContext, openLuckyMoneyUrl);
                         String hbResponse = (String) callStaticMethod(findClass(REQUEST_UTIL, walletClassLoader), "a", globalContext, random, new String(hbResponseBundle.getByteArray("data")));
 
+                        XposedBridge.log("hbResponse:" + hbResponse);
                         JSONObject jsonobject = new JSONObject(hbResponse);
                         String name = jsonobject.getJSONObject("send_object").optString("send_name");
                         int state = jsonobject.optInt("state");
@@ -235,6 +244,31 @@ public class Main implements IXposedHookLoadPackage {
                             istroop = (int) getObjectField(param.args[1], "istroop");
                             selfuin = getObjectField(param.args[1], "selfuin").toString();
                         }
+                    }
+                }
+
+        );
+
+        findAndHookMethod("com.tencent.mobileqq.activity.PublicTransFragmentActivity", loadPackageParam.classLoader, "b",
+                Context.class, Intent.class, Class.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        XposedBridge.log("PublicTransFragmentActivity param[0]:" + param.args[0]);
+                        XposedBridge.log("PublicTransFragmentActivity param[1]:" + param.args[1]);
+                        XposedBridge.log("PublicTransFragmentActivity param[2]:" + param.args[2]);
+                    }
+                }
+
+        );
+
+        findAndHookMethod("com.tencent.mobileqq.activity.PublicTransFragmentActivity", loadPackageParam.classLoader, "b",
+                Activity.class, Intent.class, Class.class, int.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        XposedBridge.log("PublicTransFragmentActivity param[0]:" + param.args[0]);
+                        XposedBridge.log("PublicTransFragmentActivity param[1]:" + param.args[1]);
+                        XposedBridge.log("PublicTransFragmentActivity param[2]:" + param.args[2]);
+                        XposedBridge.log("PublicTransFragmentActivity param[3]:" + param.args[3]);
                     }
                 }
 
@@ -342,7 +376,7 @@ public class Main implements IXposedHookLoadPackage {
     }
 
     private String getGroupuin(int messageType) throws InvocationTargetException, IllegalAccessException {
-        if (messageType != 6) {
+        if (messageType != 6 && messageType != 13) {
             return senderuin;
         }
         if (istroop == 1) {
